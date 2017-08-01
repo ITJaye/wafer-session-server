@@ -66,7 +66,7 @@ class Csessioninfo_Service
         $result = $mysql_select->select_db($select_sql);
         if ($result !== false && !empty($result)) {
             $arr_result = array();
-            while ($row = mysql_fetch_array($result)) {
+            while ($row = mysqli_fetch_array($result)) {
                 $arr_result['id'] = $row['id'];
                 $arr_result['uuid'] = $row['uuid'];
                 $arr_result['skey'] = $row['skey'];
@@ -90,7 +90,7 @@ class Csessioninfo_Service
         $result = $mysql_select->select_db($select_sql);
         if ($result !== false && !empty($result)) {
             $id = false;
-            while ($row = mysql_fetch_array($result)) {
+            while ($row = mysqli_fetch_array($result)) {
                 $id = $row['uuid'];
             }
             return $id;
@@ -106,7 +106,7 @@ class Csessioninfo_Service
         $result = $mysql_select->select_db($select_sql);
         if ($result !== false && !empty($result)) {
             $create_time = false;
-            while ($row = mysql_fetch_array($result)) {
+            while ($row = mysqli_fetch_array($result)) {
                 $create_time = strtotime($row['create_time']);
             }
             if($create_time == false){

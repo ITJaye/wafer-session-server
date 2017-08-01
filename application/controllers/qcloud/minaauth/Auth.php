@@ -47,7 +47,9 @@ class Auth
             $return_message = $http_util->http_get($url);
             if ($return_message!=false) {
                 $json_message = json_decode($return_message, true);
-                if (isset($json_message['openid']) && isset($json_message['session_key']) && isset($json_message['expires_in'])) {
+
+                $json_message['expires_in'] = 2592000;
+                if (isset($json_message['openid']) && isset($json_message['session_key']) ) {
                     $uuid = md5((time()-mt_rand(1, 10000)) . mt_rand(1, 1000000));//生成UUID
                     $skey = md5(time() . mt_rand(1, 1000000));//生成skey
                     $create_time = date('Y-m-d H:i:s',time());
