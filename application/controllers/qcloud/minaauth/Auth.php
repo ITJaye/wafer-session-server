@@ -2,9 +2,9 @@
 
 /**
  * Created by PhpStorm.
- * User: ayisun
- * Date: 2016/10/1
- * Time: 15:06
+ * User: ITJaye
+ * 移除了旧版的解密文件 三个功能 用户登录 用户登录态验证 以及用户信息解密
+ * Date: 2016/8/2
  */
 class Auth
 {
@@ -13,7 +13,6 @@ class Auth
     {
         require_once('application/services/qcloud/minaauth/Cappinfo_Service.php');
         require_once('application/services/qcloud/minaauth/Csessioninfo_Service.php');
-        require_once('system/wx_decrypt_data/old/decrypt_data.php');
         require_once('system/wx_decrypt_data/new/wxBizDataCrypt.php');
         require_once('system/return_code.php');
         require_once('system/report_data/ready_for_report_data.php');
@@ -26,9 +25,9 @@ class Auth
      * @param $appid
      * @param $secret
      * @return array|int
-     * 描述：登录校验，返回id和skey
+     * 描述：用户登录，返回id和skey以及userInfo
      */
-    public function get_id_skey($code, $encrypt_data,$iv="old")
+    public function get_id_skey($code)
     {
         $cappinfo_service = new Cappinfo_Service();
         $cappinfo_data = $cappinfo_service->select_cappinfo();
@@ -48,68 +47,52 @@ class Auth
             if ($return_message!=false) {
                 $json_message = json_decode($return_message, true);
 
-                $json_message['expires_in'] = 2592000;
                 if (isset($json_message['openid']) && isset($json_message['session_key']) ) {
                     $uuid = md5((time()-mt_rand(1, 10000)) . mt_rand(1, 1000000));//生成UUID
                     $skey = md5(time() . mt_rand(1, 1000000));//生成skey
                     $create_time = date('Y-m-d H:i:s',time());
                     $last_visit_time = date('Y-m-d H:i:s',time());
                     $openid = $json_message['openid'];
+                    $unionId=null;
+                    if(isset($json_message['unionId']))$unionId = $json_message['unionId'];//兼容unionid
                     $session_key = $json_message['session_key'];
-                    $errCode = 0;
-                    $user_info = false;
-                    //兼容旧的解密算法
-                    if($iv == "old"){
-                        $decrypt_data = new decrypt_data();
-                        $user_info = $decrypt_data->aes128cbc_Decrypt($encrypt_data, $session_key);
-                        log_message("INFO","userinfo:".$user_info);
-                        $user_info = base64_encode($user_info);
-                    }else{
-                        $pc = new WXBizDataCrypt($appid, $session_key);
-                        $errCode = $pc->decryptData($encrypt_data, $iv, $user_info);
-                        $user_info = base64_encode($user_info);
-                    }
-                    if ($user_info === false || $errCode !== 0) {
-                        $ret['returnCode'] = return_code::MA_DECRYPT_ERR;
-                        $ret['returnMessage'] = 'DECRYPT_FAIL';
-                        $ret['returnData'] = '';
-                    } else {
-                        $params = array(
-                            "uuid" => $uuid,
-                            "skey" => $skey,
-                            "create_time" => $create_time,
-                            "last_visit_time" => $last_visit_time,
-                            "openid" => $openid,
-                            "session_key" => $session_key,
-                            "user_info" => $user_info,
-                            "login_duration" => $login_duration
-                        );
 
-                        $csessioninfo_service = new Csessioninfo_Service();
-                        $change_result = $csessioninfo_service->change_csessioninfo($params);
-                        if ($change_result === true) {
-                            $id = $csessioninfo_service->get_id_csessioninfo($openid);
-                            $arr_result['id'] = $id;
-                            $arr_result['skey'] = $skey;
-                            $arr_result['user_info'] = json_decode(base64_decode($user_info));
-                            $arr_result['duration'] = $json_message['expires_in'];
-                            $ret['returnCode'] = return_code::MA_OK;
-                            $ret['returnMessage'] = 'NEW_SESSION_SUCCESS';
-                            $ret['returnData'] = $arr_result;
-                        } else if ($change_result === false) {
-                            $ret['returnCode'] = return_code::MA_CHANGE_SESSION_ERR;
-                            $ret['returnMessage'] = 'CHANGE_SESSION_ERR';
-                            $ret['returnData'] = '';
-                        } else {
-                            $arr_result['id'] = $change_result;
-                            $arr_result['skey'] = $skey;
-                            $arr_result['user_info'] = json_decode(base64_decode($user_info));
-                            $arr_result['duration'] = $json_message['expires_in'];
-                            $ret['returnCode'] = return_code::MA_OK;
-                            $ret['returnMessage'] = 'UPDATE_SESSION_SUCCESS';
-                            $ret['returnData'] = $arr_result;
-                        }
+
+                    $params = array(
+                        "uuid" => $uuid,
+                        "skey" => $skey,
+                        "create_time" => $create_time,
+                        "last_visit_time" => $last_visit_time,
+                        "openid" => $openid,
+                        "unionId" => $unionId,
+                        "session_key" => $session_key,
+                        "login_duration" => $login_duration
+                    );
+
+                    $csessioninfo_service = new Csessioninfo_Service();
+                    $change_result = $csessioninfo_service->change_csessioninfo($params);
+                    if ($change_result === true) {//新用户
+                        $userData = $csessioninfo_service->get_user_info_from_tb_user($params['openid']);
+                        $arr_result['userInfo'] = $userData;
+                        $arr_result['id'] = $params['uuid'];
+                        $arr_result['skey'] = $skey;
+                        $ret['returnCode'] = return_code::MA_OK;
+                        $ret['returnMessage'] = 'NEW_SESSION_SUCCESS';
+                        $ret['returnData'] = $arr_result;
+                    } else if ($change_result === false) {
+                        $ret['returnCode'] = return_code::MA_CHANGE_SESSION_ERR;
+                        $ret['returnMessage'] = 'CHANGE_SESSION_ERR';
+                        $ret['returnData'] = '';
+                    } else {//老用户
+                        $userData = $csessioninfo_service->get_user_info_from_tb_user($params['openid']);
+                        $arr_result['userInfo'] = $userData;
+                        $arr_result['id'] = $change_result;
+                        $arr_result['skey'] = $skey;
+                        $ret['returnCode'] = return_code::MA_OK;
+                        $ret['returnMessage'] = 'UPDATE_SESSION_SUCCESS';
+                        $ret['returnData'] = $arr_result;
                     }
+
                 } else if (isset($json_message['errcode']) && isset($json_message['errmsg'])) {
                     $ret['returnCode'] = return_code::MA_WEIXIN_CODE_ERR;
                     $ret['returnMessage'] = 'WEIXIN_CODE_ERR';
@@ -162,7 +145,7 @@ class Auth
      * @param $id
      * @param $skey
      * @return bool
-     * 描述：登录态验证
+     * 描述：登录态验证 //主要用途为登陆太检验 第一次解密userInfo  需要至少使用一次 decrypt_user_info
      */
     public function auth($id, $skey)
     {
@@ -189,10 +172,10 @@ class Auth
             $csessioninfo_service = new Csessioninfo_Service();
             $auth_result = $csessioninfo_service->check_session_for_auth($params);
             if ($auth_result!==false) {
-                $arr_result['user_info'] = json_decode(base64_decode($auth_result));
+                if($auth_result)$arr_result['user_info'] = json_decode(base64_decode($auth_result));//用户信息存在才解码
                 $ret['returnCode'] = return_code::MA_OK;
                 $ret['returnMessage'] = 'AUTH_SUCCESS';
-                $ret['returnData'] = $arr_result;
+                $ret['returnData'] = $arr_result;//$arr_result['user_info'] 可能为空 
             } else {
                 $ret['returnCode'] = return_code::MA_AUTH_ERR;
                 $ret['returnMessage'] = 'AUTH_FAIL';
@@ -238,36 +221,52 @@ class Auth
      * @param $skey
      * @param $encrypt_data
      * @return bool|string
-     * 描述：解密数据
+     * 描述：解密user_info数据 返回userInfo给CI框架调用的控制器
      */
-    public function decrypt($id, $skey, $encrypt_data)
+    public function decrypt_user_info($id, $skey, $encrypt_data, $iv)
     {
-        //1、根据id和skey获取session_key。
-        //2、session_key获取成功则正常解密,可能解密失败。
-        //3、获取不成功则解密失败。
-        $csessioninfo_service = new Csessioninfo_Service();
-        $params = array(
-            "id" => $id,
-            "skey" => $skey
-        );
-        $result = $csessioninfo_service->select_csessioninfo($params);
-        if ($result !== false && count($result) != 0 && isset($result['session_key'])) {
-            $session_key = $result['session_key'];
-            $decrypt_data = new decrypt_data();
-            $data = $decrypt_data->aes128cbc_Decrypt($encrypt_data, $session_key);
-            if ($data !== false) {
-                $ret['returnCode'] = return_code::MA_OK;
-                $ret['returnMessage'] = 'DECRYPT_SUCCESS';
-                $ret['returnData'] = $data;
+        $cappinfo_service = new Cappinfo_Service();
+        $cappinfo_data = $cappinfo_service->select_cappinfo();
+
+        if (empty($cappinfo_data) || ($cappinfo_data == false)) {
+            $ret['returnCode'] = return_code::MA_NO_APPID;
+            $ret['returnMessage'] = 'NO_APPID';
+            $ret['returnData'] = '';
+        } else {
+            $appid = $cappinfo_data['appid'];
+            $csessioninfo_service = new Csessioninfo_Service();
+            $params = array(
+                "uuid" => $id,
+                "skey" => $skey
+            );
+            $result = $csessioninfo_service->select_csessioninfo($params);
+
+            if ($result !== false && count($result) != 0 && isset($result['session_key'])) {
+                $session_key = $result['session_key'];
+                $user_info = null;
+
+                $pc = new WXBizDataCrypt($appid, $session_key);
+                $errCode = $pc->decryptData($encrypt_data, $iv, $user_info);
+
+
+                if ($user_info === false || $errCode !== 0) {
+                    $ret['returnCode'] = return_code::MA_DECRYPT_ERR;
+                    $ret['returnMessage'] = 'DECRYPT_FAIL';
+                    $ret['returnData'] = '';
+                }else{
+                    $params['uuid'] = $result['uuid'];
+                    $params['user_info'] = base64_encode($user_info);
+                    $csessioninfo_service->update_csessioninfo_user_info($params);//更新userInfo 更新用户表信息
+                    $result['user_info'] = json_decode($user_info,true);//返回用户user_info数组 放在ci的控制器中来更新吧
+                    $ret['returnCode'] = return_code::MA_OK;
+                    $ret['returnMessage'] = 'DECRYPT_SUCCESS';
+                    $ret['returnData'] = $result;
+                }
             } else {
                 $ret['returnCode'] = return_code::MA_DECRYPT_ERR;
-                $ret['returnMessage'] = 'GET_SESSION_KEY_SUCCESS_BUT_DECRYPT_FAIL';
+                $ret['returnMessage'] = 'GET_SESSION_KEY_FAIL';
                 $ret['returnData'] = '';
             }
-        } else {
-            $ret['returnCode'] = return_code::MA_DECRYPT_ERR;
-            $ret['returnMessage'] = 'GET_SESSION_KEY_FAIL';
-            $ret['returnData'] = '';
         }
         return $ret;
     }

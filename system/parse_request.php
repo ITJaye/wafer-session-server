@@ -2,9 +2,9 @@
 
 /**
  * Created by PhpStorm.
- * User: ayisun
- * Date: 2016/10/3
- * Time: 11:22
+ * User: ITJaye
+ * 增加了解密用户数据的支持函数
+ * Date: 2017/8/2
  */
 class parse_request
 {
@@ -35,17 +35,11 @@ class parse_request
                 $ret['returnMessage'] = 'NO_PARA';
                 $ret['returnData'] = '';
             } else {
-                if ($json_decode['interface']['interfaceName'] == 'qcloud.cam.id_skey') {
-                    if (isset($json_decode['interface']['para']['code'])&&isset($json_decode['interface']['para']['encrypt_data'])) {
+                if ($json_decode['interface']['interfaceName'] == 'qcloud.cam.id_skey') {//登录做换code
+                    if (isset($json_decode['interface']['para']['code'])) {
                         $code = $json_decode['interface']['para']['code'];
-                        $encrypt_data = $json_decode['interface']['para']['encrypt_data'];
                         $auth = new Auth();
-                        if(!isset($json_decode['interface']['para']['iv']))
-                            $ret = $auth->get_id_skey($code,$encrypt_data);
-                        else{
-                            $iv = $json_decode['interface']['para']['iv'];
-                            $ret = $auth->get_id_skey($code,$encrypt_data,$iv);
-                        }
+                        $ret = $auth->get_id_skey($code);
                     } else {
                         $ret['returnCode'] = return_code::MA_PARA_ERR;
                         $ret['returnMessage'] = 'PARA_ERR';
@@ -62,13 +56,14 @@ class parse_request
                         $ret['returnMessage'] = 'PARA_ERR';
                         $ret['returnData'] = '';
                     }
-                } else if ($json_decode['interface']['interfaceName'] == 'qcloud.cam.decrypt') {
-                    if (isset($json_decode['interface']['para']['id']) && isset($json_decode['interface']['para']['skey']) && isset($json_decode['interface']['para']['encrypt_data'])) {
+                } else if ($json_decode['interface']['interfaceName'] == 'qcloud.cam.decrypt_user_info') {
+                    if (isset($json_decode['interface']['para']['id']) && isset($json_decode['interface']['para']['skey']) && isset($json_decode['interface']['para']['encrypt_data'])&& isset($json_decode['interface']['para']['iv'])) {
                         $id = $json_decode['interface']['para']['id'];
                         $skey = $json_decode['interface']['para']['skey'];
                         $encrypt_data = $json_decode['interface']['para']['encrypt_data'];
+                        $iv = $json_decode['interface']['para']['iv'];
                         $auth = new Auth();
-                        $ret = $auth->decrypt($id, $skey, $encrypt_data);
+                        $ret = $auth->decrypt_user_info($id, $skey, $encrypt_data, $iv);
                     } else {
                         $ret['returnCode'] = return_code::MA_PARA_ERR;
                         $ret['returnMessage'] = 'PARA_ERR';
