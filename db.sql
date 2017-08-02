@@ -22,6 +22,7 @@ CREATE TABLE `cSessionInfo` (
   `open_id` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   `session_key` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   `user_info` varchar(2048) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `unionId` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   PRIMARY KEY (`id`),
   KEY `auth` (`uuid`,`skey`),
   KEY `weixin` (`open_id`,`session_key`)

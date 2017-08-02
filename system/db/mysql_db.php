@@ -49,16 +49,15 @@ class mysql_db
      */
     public function query_db($sql)
     {
-        $con = mysql_connect($this->host . ':' . $this->port, $this->user_name, $this->pass_wd);
+        $con = mysqli_connect($this->host . ':' . $this->port, $this->user_name, $this->pass_wd,$this->data_base);
         if ($con) {
-            mysql_select_db($this->data_base, $con);
-            $mysql_result = mysql_query($sql);
+
+            $mysql_result = mysqli_query($con,$sql);
             if ($mysql_result === false) {
-                mysql_close($con);
+                
                 log_message("ERROR","$sql mysql_err");
                 return false;
             }
-            mysql_close($con);
             return true;
         } else {
             log_message("ERROR","$sql mysql_connect_err");
@@ -73,12 +72,11 @@ class mysql_db
      */
     public function select_db($sql)
     {
-        $con = mysql_connect($this->host . ':' . $this->port, $this->user_name, $this->pass_wd);
+        $con = mysqli_connect($this->host . ':' . $this->port, $this->user_name, $this->pass_wd,$this->data_base);
         if ($con) {
-            mysql_select_db($this->data_base, $con);
-            $arr_result = mysql_query($sql);
-            mysql_close($con);
-            if(mysql_num_rows($arr_result) < 1)
+            
+            $arr_result = mysqli_query($con,$sql);
+            if(mysqli_num_rows($arr_result) < 1)
                 return false;
             return $arr_result;
         } else {
@@ -88,9 +86,9 @@ class mysql_db
     }
 
     public function init_db($sql){
-        $con = mysql_connect($this->host . ':' . $this->port, $this->user_name, $this->pass_wd);
+        $con = mysqli_connect($this->host . ':' . $this->port, $this->user_name, $this->pass_wd,$this->data_base);
         if ($con) {
-            $result = mysql_query("$sql",$con);
+            $result = mysqli_query($con,"$sql");
             if($result===false){
                 log_message("ERROR","$sql mysql_err");
                 return false;
